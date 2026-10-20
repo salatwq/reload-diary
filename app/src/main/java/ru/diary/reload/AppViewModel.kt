@@ -54,7 +54,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             loading = true
             status = "Загрузка…"
             try {
-                data = withTimeout(60_000) { GosuApi.load(getApplication<Application>()) }
+                data = withTimeout(45_000) { GosuApi.load(getApplication<Application>()) }
                 CookieManager.getInstance().flush()
                 status = when {
                     data.isEmpty -> "Загружено, но данных нет."
@@ -62,7 +62,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     else -> "Обновлено"
                 }
             } catch (e: Exception) {
-                status = "Ошибка: ${e.message ?: e.javaClass.simpleName}"
+                status = if (e is kotlinx.coroutines.TimeoutCancellationException)
+                    "Нет ответа от Госуслуг за 45 с. Проверьте интернет и войдите заново: Аккаунт → Войти → «Я ВОШЁЛ»."
+                else "Ошибка: ${e.message ?: e.javaClass.simpleName}"
             } finally {
                 loading = false
             }

@@ -3,6 +3,10 @@ package ru.diary.reload.data
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -20,6 +24,8 @@ import kotlin.coroutines.resume
  * поэтому подставляются cookies текущего входа и не нужно ничего знать о токенах.
  */
 object GosuApi {
+    private val main = Handler(Looper.getMainLooper())
+
     private const val JS = """
 (async function(){
  try {
@@ -60,7 +66,7 @@ object GosuApi {
         fun finish(r: Result<DiaryData>) {
             if (finished) return
             finished = true
-            wv.post { wv.destroy() }
+            main.post { wv.destroy() }
             if (cont.isActive) cont.resumeWith(r)
         }
         wv.addJavascriptInterface(object {
@@ -69,18 +75,23 @@ object GosuApi {
         }, "Bridge")
         var started = false
         wv.webViewClient = object : WebViewClient() {
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                if (request.isForMainFrame) {
+                    finish(Result.failure(Exception("Не удалось открыть Госуслуги: ${error.description}")))
+                }
+            }
             override fun onPageFinished(view: WebView, url: String?) {
                 if (started) return
                 val host = Uri.parse(url ?: "").host.orEmpty()
                 if (host == "www.gosuslugi.ru") {
                     started = true
-                    view.postDelayed({ view.evaluateJavascript(JS, null) }, 1500)
+                    main.postDelayed({ view.evaluateJavascript(JS, null) }, 1500)
                 } else if (host.isNotEmpty() && host.endsWith("gosuslugi.ru")) {
                     finish(Result.failure(Exception("Сессия закончилась — войдите заново (Аккаунт → Войти)")))
                 }
             }
         }
-        cont.invokeOnCancellation { wv.post { wv.destroy() } }
+        cont.invokeOnCancellation { main.post { wv.destroy() } }
         wv.loadUrl("https://www.gosuslugi.ru/school")
     }
 
