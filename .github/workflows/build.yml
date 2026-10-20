@@ -24,7 +24,7 @@ jobs:
       - name: Save log
         if: failure()
         run: |
-          tail -n 200 build.log > /tmp/log.txt
+          grep -E "^e: " build.log > /tmp/log.txt; tail -n 30 build.log >> /tmp/log.txt
           git config user.name ci && git config user.email ci@example.com
           git checkout --orphan buildlog && git rm -rf . -q
           cp /tmp/log.txt build.log
