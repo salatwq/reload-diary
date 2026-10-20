@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import ru.diary.reload.data.Demo
 import ru.diary.reload.data.DiaryData
-import ru.diary.reload.data.Scraper
+import ru.diary.reload.data.GosuApi
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("diary", 0)
@@ -32,7 +32,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         refresh()
     }
 
-    /** Вызывается после того, как пользователь вошёл через Госуслуги во встроенном браузере. */
+    /** Вызывается после входа через Госуслуги во встроенном браузере. */
     fun markLoggedIn() {
         CookieManager.getInstance().flush()
         switchDemo(false)
@@ -50,24 +50,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             status = "Демо-данные"
             return
         }
-        if (url("schedule") == null && url("grades") == null && url("homework") == null) {
-            status = "Страницы не указаны: Аккаунт → Войти → откройте нужную страницу → «Это расписание / оценки / ДЗ»."
-            return
-        }
         viewModelScope.launch {
             loading = true
             status = "Загрузка…"
             try {
-                val ctx = getApplication<Application>()
-                withTimeout(60_000) {
-                    val lessons = url("schedule")?.let { Scraper.parseSchedule(Scraper.fetchTables(ctx, it)) }.orEmpty()
-                    val grades = url("grades")?.let { Scraper.parseGrades(Scraper.fetchTables(ctx, it)) }.orEmpty()
-                    val hw = url("homework")?.let { Scraper.parseHomework(Scraper.fetchTables(ctx, it)) }.orEmpty()
-                    data = DiaryData(lessons, grades, hw)
+                data = withTimeout(60_000) { GosuApi.load(getApplication<Application>()) }
+                CookieManager.getInstance().flush()
+                status = when {
+                    data.isEmpty -> "Загружено, но данных нет."
+                    data.lessons.isEmpty() -> "Обновлено. Расписание пока не подключено."
+                    else -> "Обновлено"
                 }
-                status = if (data.isEmpty) {
-                    "Страницы загружены, но таблицы не распознаны (возможно, сессия истекла — войдите снова)."
-                } else "Обновлено"
             } catch (e: Exception) {
                 status = "Ошибка: ${e.message ?: e.javaClass.simpleName}"
             } finally {

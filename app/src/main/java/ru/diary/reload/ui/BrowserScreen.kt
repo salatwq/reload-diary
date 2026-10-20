@@ -112,11 +112,9 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit) {
                 ) {
                     SlantButton("Я ВОШЁЛ") {
                         vm.markLoggedIn()
-                        note = "Сессия сохранена. Откройте страницу расписания и нажмите «ЭТО РАСПИСАНИЕ»."
+                        note = "Готово. Нажмите «ЗАКРЫТЬ» и «ОБНОВИТЬ ДАННЫЕ» в Аккаунте."
                     }
-                    SlantButton("ЭТО РАСПИСАНИЕ", filled = false) { save(web, vm, "schedule", "Расписание") { note = it } }
                     SlantButton("ЭТО ОЦЕНКИ", filled = false) { save(web, vm, "grades", "Оценки") { note = it } }
-                    SlantButton("ЭТО ДЗ", filled = false) { save(web, vm, "homework", "Домашка") { note = it } }
                     SlantButton("МОЯ ШКОЛА", filled = false) {
                         web?.loadUrl("https://www.gosuslugi.ru/school")
                     }

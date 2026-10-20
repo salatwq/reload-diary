@@ -230,13 +230,6 @@ fun AccountScreen(vm: AppViewModel, onBack: () -> Unit, onLogin: () -> Unit) {
             ) { vm.switchDemo(!vm.demo) }
             SlantButton("ВЫЙТИ ИЗ АККАУНТА", Modifier.fillMaxWidth(), filled = false) { vm.logout() }
         }
-        Spacer(Modifier.height(14.dp))
-        SlantCard(Modifier.fillMaxWidth()) {
-            BigText("СТРАНИЦЫ ДНЕВНИКА", 14, P3.Cyan)
-            listOf("schedule" to "Расписание", "grades" to "Оценки", "homework" to "Домашка").forEach { (k, n) ->
-                Text("$n: ${vm.url(k) ?: "не указана"}", color = P3.White, fontSize = 11.sp)
-            }
-        }
         if (vm.loading) {
             Spacer(Modifier.height(10.dp))
             BigText("ЗАГРУЗКА…", 14, P3.Cyan)
