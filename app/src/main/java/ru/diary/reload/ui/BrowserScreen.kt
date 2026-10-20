@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -116,6 +117,22 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit) {
                     }
                     SlantButton("МОЯ ШКОЛА", filled = false) {
                         web?.loadUrl("https://www.gosuslugi.ru/school")
+                    }
+                    SlantButton("ПОДЕЛИТЬСЯ ЗАПРОСАМИ") {
+                        web?.evaluateJavascript("JSON.stringify(window.__cap||[])") { raw ->
+                            val txt = (JSONTokener(raw).nextValue() as? String).orEmpty().take(150_000)
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, txt)
+                            }
+                            try {
+                                // сначала пробуем сразу открыть приложение Claude
+                                ctx.startActivity(Intent(send).setPackage("com.anthropic.claude"))
+                            } catch (e: Exception) {
+                                ctx.startActivity(Intent.createChooser(send, "Поделиться запросами"))
+                            }
+                            note = "Отправлено запросов: ${txt.count { it == '{' }}"
+                        }
                     }
                     SlantButton("КОПИРОВАТЬ ЗАПРОСЫ", filled = false) {
                         web?.evaluateJavascript("JSON.stringify(window.__cap||[])") { raw ->
