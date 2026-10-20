@@ -64,16 +64,6 @@ fun MenuScreen(vm: AppViewModel, onOpen: (Screen) -> Unit) {
 
     P3Background {
         Column(Modifier.fillMaxSize().systemBarsPadding().padding(20.dp)) {
-            Box(
-                Modifier.clip(SlantShape(14.dp)).background(Color.Black)
-                    .padding(horizontal = 22.dp, vertical = 8.dp),
-            ) {
-                Image(
-                    painterResource(R.drawable.logo), contentDescription = "My School Reload",
-                    contentScale = ContentScale.Fit, modifier = Modifier.height(52.dp),
-                )
-            }
-            Spacer(Modifier.height(8.dp))
             // «календарь» в шапке
             Row(verticalAlignment = Alignment.Bottom) {
                 BigText(now.dayOfMonth.toString(), 92)
@@ -335,7 +325,7 @@ fun HomeworkScreen(vm: AppViewModel, onBack: () -> Unit) {
                     } else hw.forEach { h ->
                         Spacer(Modifier.height(6.dp))
                         BigText(h.subject, 16)
-                        if (h.text.isNotBlank()) Text(h.text, color = P3.White, fontSize = 14.sp)
+                        if (h.text.isNotBlank()) Text(linkified(h.text), color = P3.White, fontSize = 14.sp)
                     }
                 }
             }
@@ -357,6 +347,7 @@ fun AccountScreen(vm: AppViewModel, onBack: () -> Unit, onLogin: () -> Unit) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SlantButton("ВОЙТИ ЧЕРЕЗ ГОСУСЛУГИ", Modifier.fillMaxWidth(), onClick = onLogin)
             SlantButton("ОБНОВИТЬ ДАННЫЕ", Modifier.fillMaxWidth(), filled = false) { vm.refresh() }
+            SlantButton("ТЕСТ УВЕДОМЛЕНИЯ", Modifier.fillMaxWidth(), filled = false) { vm.testNotification() }
             SlantButton(
                 if (vm.demo) "ВЫЙТИ ИЗ ДЕМО (реальные данные)" else "ВКЛЮЧИТЬ ДЕМО",
                 Modifier.fillMaxWidth(), filled = false,

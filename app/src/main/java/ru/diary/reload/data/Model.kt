@@ -13,6 +13,8 @@ data class GradeRow(val subject: String, val marks: List<String>, val average: S
 
 data class Homework(val subject: String, val due: String, val text: String, val dueIso: String = "")
 
+data class MarkInfo(val id: String, val subject: String, val value: String, val date: String, val kind: String)
+
 data class FinalMark(val subject: String, val period: String, val value: String)
 
 data class DiaryData(
@@ -20,6 +22,7 @@ data class DiaryData(
     val grades: List<GradeRow>,
     val homework: List<Homework>,
     val finals: List<FinalMark> = emptyList(),
+    val marks: List<MarkInfo> = emptyList(),
 ) {
     val isEmpty get() = lessons.isEmpty() && grades.isEmpty() && homework.isEmpty() && finals.isEmpty()
 }

@@ -42,6 +42,19 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
+import kotlin.math.PI
+import kotlin.math.sin
+import kotlin.random.Random
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -71,32 +84,93 @@ class SlantShape(private val skew: Dp) : Shape {
     }
 }
 
-/** Синий градиент с медленно «едущими» диагональными полосами. */
+private class Diamond(val x: Float, val y: Float, val size: Float, val speed: Int, val alpha: Float, val cyan: Boolean)
+
+/** Глубокий синий с мягким свечением, точечной сеткой, вращающимся «циферблатом» и плывущими ромбами. */
 @Composable
 fun P3Background(content: @Composable BoxScope.() -> Unit) {
     val t = rememberInfiniteTransition(label = "bg")
-    val shift by t.animateFloat(
+    val phase by t.animateFloat(
         initialValue = 0f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(7000, easing = LinearEasing), RepeatMode.Restart),
-        label = "shift",
+        animationSpec = infiniteRepeatable(tween(30000, easing = LinearEasing), RepeatMode.Restart),
+        label = "phase",
     )
+    val diamonds = remember {
+        val r = Random(7)
+        List(18) {
+            Diamond(r.nextFloat(), r.nextFloat(), 14f + r.nextFloat() * 46f, 1 + r.nextInt(3), 0.05f + r.nextFloat() * 0.13f, r.nextBoolean())
+        }
+    }
     Box(
         Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(P3.Blue, P3.DeepBlue)))
             .drawBehind {
-                val step = 96.dp.toPx()
-                var x = -size.height + shift * step
-                while (x < size.width) {
-                    drawLine(
-                        Color(0x1842F0FF), Offset(x, size.height), Offset(x + size.height, 0f),
-                        strokeWidth = 20.dp.toPx(),
-                    )
-                    x += step
+                val w = size.width
+                val h = size.height
+                drawRect(
+                    Brush.radialGradient(
+                        listOf(Color(0xFF2C66FF), Color(0xFF0A2BD6), Color(0xFF020B4A)),
+                        center = Offset(w * 0.15f, h * 0.1f), radius = maxOf(w, h) * 1.15f,
+                    ),
+                )
+                // точечная сетка
+                val step = 34.dp.toPx()
+                val dot = Color(0x1442F0FF)
+                var gy = step / 2
+                while (gy < h) {
+                    var gx = step / 2
+                    while (gx < w) { drawCircle(dot, 1.6.dp.toPx(), Offset(gx, gy)); gx += step }
+                    gy += step
                 }
+                // «циферблат» в правом нижнем углу
+                val c = Offset(w * 0.92f, h * 0.9f)
+                rotate(phase * 360f, c) {
+                    listOf(0.45f, 0.7f, 0.98f).forEachIndexed { i, rr ->
+                        drawCircle(
+                            Color(0x2B42F0FF), w * rr, c,
+                            style = Stroke(width = (2 + i).dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(46f * (i + 1), 30f))),
+                        )
+                    }
+                }
+                rotate(-phase * 180f, c) {
+                    drawCircle(
+                        Color(0x1AFFFFFF), w * 0.3f, c,
+                        style = Stroke(width = 6.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 36f))),
+                    )
+                }
+                // плывущие вверх ромбы
+                diamonds.forEach { d ->
+                    val s = d.size.dp.toPx()
+                    val fy = (((d.y - phase * d.speed) % 1f) + 1f) % 1f
+                    val cx = d.x * w + sin(phase * 2f * PI.toFloat() * d.speed + d.x * 6f) * 12.dp.toPx()
+                    val cy = fy * (h + 2 * s) - s
+                    val p = Path().apply {
+                        moveTo(cx, cy - s); lineTo(cx + s * 0.7f, cy); lineTo(cx, cy + s); lineTo(cx - s * 0.7f, cy); close()
+                    }
+                    drawPath(p, (if (d.cyan) Color(0xFF42F0FF) else Color.White).copy(alpha = d.alpha))
+                }
+                // тёмный угол для глубины
+                val corner = Path().apply { moveTo(0f, h * 0.72f); lineTo(w * 0.45f, h); lineTo(0f, h); close() }
+                drawPath(corner, Color(0x59000820))
             },
         content = content,
     )
+}
+
+private val URL_RE = Regex("""https?://[^\s]+""")
+
+/** Делает ссылки в тексте кликабельными (открываются в браузере по умолчанию). */
+fun linkified(text: String): AnnotatedString = buildAnnotatedString {
+    var last = 0
+    for (m in URL_RE.findAll(text)) {
+        val url = m.value.trimEnd('.', ',', ')', ';', '!', '?')
+        append(text.substring(last, m.range.first))
+        withLink(
+            LinkAnnotation.Url(url, TextLinkStyles(SpanStyle(color = P3.Cyan, textDecoration = TextDecoration.Underline))),
+        ) { append(url) }
+        last = m.range.first + url.length
+    }
+    append(text.substring(last))
 }
 
 @Composable

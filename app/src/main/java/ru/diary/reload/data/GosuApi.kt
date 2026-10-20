@@ -66,7 +66,7 @@ object GosuApi {
 """
 
     /** Интервалы в «Моей школе» = номер недели ISO + учебный год (432026 = 43-я неделя, учебный год 2026). */
-    private fun buildJs(): String {
+    private fun buildJs(full: Boolean): String {
         val today = LocalDate.now()
         val acYear = if (today.monthValue >= 7) today.year else today.year - 1
         fun id(d: LocalDate, y: Int) = "${d.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)}$y"
@@ -77,13 +77,14 @@ object GosuApi {
             if (d.year > acYear) all += id(d, d.year)   // на случай, если суффикс — календарный год
             d = d.plusWeeks(1)
         }
-        val near = linkedSetOf(id(today, acYear), id(today.plusWeeks(1), acYear))
+        val near = if (full) linkedSetOf(id(today, acYear), id(today.plusWeeks(1), acYear)) else linkedSetOf()
+        if (!full) { all.clear(); all += id(today, acYear); all += id(today.minusWeeks(1), acYear) }
         fun arr(c: Collection<String>) = c.joinToString(",", "[", "]") { "'$it'" }
         return JS.replace("__ALL__", arr(all)).replace("__NEAR__", arr(near))
     }
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
-    suspend fun load(ctx: Context): DiaryData = suspendCancellableCoroutine { cont ->
+    suspend fun load(ctx: Context, full: Boolean = true): DiaryData = suspendCancellableCoroutine { cont ->
         val wv = WebView(ctx)
         wv.settings.javaScriptEnabled = true
         wv.settings.domStorageEnabled = true
@@ -111,7 +112,7 @@ object GosuApi {
                 val host = Uri.parse(url ?: "").host.orEmpty()
                 if (host == "www.gosuslugi.ru") {
                     started = true
-                    main.postDelayed({ view.evaluateJavascript(buildJs(), null) }, 1500)
+                    main.postDelayed({ view.evaluateJavascript(buildJs(full), null) }, 1500)
                 } else if (host.isNotEmpty() && host.endsWith("gosuslugi.ru")) {
                     finish(Result.failure(Exception("Сессия закончилась — войдите заново (Аккаунт → Войти)")))
                 }
@@ -143,7 +144,10 @@ object GosuApi {
                 it.optString("mark_value1").isNotBlank() && it.optString("mark_value1") != "null"
         }
         val (fin, cur) = valid.partition { isFinal(it) }
-        return DiaryData(parseLessons(lessons), parseMarks(cur), parseHomework(homework), parseFinals(fin))
+        val infos = valid.map {
+            MarkInfo(it.str("id"), it.str("subject_name"), it.str("mark_value1"), it.str("mark_date"), it.str("work_type_description"))
+        }
+        return DiaryData(parseLessons(lessons), parseMarks(cur), parseHomework(homework), parseFinals(fin), infos)
     }
 
     private val FINAL = Regex("(?i)итог|четверт|полугод|годов|final|period|quarter|semester|annual")

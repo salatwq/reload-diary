@@ -96,7 +96,14 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit) {
                             override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
                                 // не даём уйти в deeplink приложения Госуслуг
                                 val scheme = r.url.scheme ?: ""
-                                return scheme != "http" && scheme != "https"
+                                if (scheme != "http" && scheme != "https") return true
+                                val host = r.url.host.orEmpty()
+                                val internal = host.endsWith("gosuslugi.ru") || host.endsWith("gu-st.ru") || host.endsWith("edu.orb.ru")
+                                if (!internal && r.hasGesture()) {
+                                    runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, r.url)) }
+                                    return true
+                                }
+                                return false
                             }
                             override fun onPageStarted(v: WebView, url: String?, f: android.graphics.Bitmap?) {
                                 v.evaluateJavascript(CAPTURE_JS, null)
