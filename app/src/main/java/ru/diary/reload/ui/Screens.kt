@@ -17,6 +17,14 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.res.painterResource
+import ru.diary.reload.R
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,16 +55,25 @@ private val DAYS = listOf("ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ")
 
 @Composable
 fun MenuScreen(vm: AppViewModel, onOpen: (Screen) -> Unit) {
-    val items = Screen.entries.filter { it != Screen.MENU && it != Screen.BROWSER }
+    val items = Screen.entries.filter { it != Screen.MENU && it != Screen.BROWSER && it != Screen.SPLASH }
     var sel by rememberSaveable { mutableIntStateOf(0) }
+    val haptic = LocalHapticFeedback.current
     val now = LocalDate.now()
     val locale = Locale("ru")
     val todayLessons = vm.data.lessons.count { it.day == now.dayOfWeek.value }
 
     P3Background {
         Column(Modifier.fillMaxSize().systemBarsPadding().padding(20.dp)) {
-            BigText("MY SCHOOL RELOAD", 13, P3.Cyan)
-            Spacer(Modifier.height(6.dp))
+            Box(
+                Modifier.clip(SlantShape(14.dp)).background(Color.Black)
+                    .padding(horizontal = 22.dp, vertical = 8.dp),
+            ) {
+                Image(
+                    painterResource(R.drawable.logo), contentDescription = "My School Reload",
+                    contentScale = ContentScale.Fit, modifier = Modifier.height(52.dp),
+                )
+            }
+            Spacer(Modifier.height(8.dp))
             // «календарь» в шапке
             Row(verticalAlignment = Alignment.Bottom) {
                 BigText(now.dayOfMonth.toString(), 92)
@@ -77,7 +94,12 @@ fun MenuScreen(vm: AppViewModel, onOpen: (Screen) -> Unit) {
                 },
             ) {
                 items.forEachIndexed { i, s ->
-                    MenuItem(s.title, i == sel) { if (i == sel) onOpen(s) else sel = i }
+                    MenuItem(i, s.title, i == sel) {
+                        if (i == sel) onOpen(s) else {
+                            sel = i
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
+                    }
                 }
             }
             Spacer(Modifier.weight(1f))
@@ -96,10 +118,10 @@ fun MenuScreen(vm: AppViewModel, onOpen: (Screen) -> Unit) {
 }
 
 @Composable
-private fun MenuItem(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun MenuItem(index: Int, label: String, selected: Boolean, onClick: () -> Unit) {
     val scale by animateFloatAsState(if (selected) 1.08f else 1f, label = "scale")
     Box(
-        Modifier.fillMaxWidth().padding(vertical = 5.dp)
+        Modifier.fillMaxWidth().padding(vertical = 5.dp).appear(index)
             .graphicsLayer {
                 scaleX = scale; scaleY = scale
                 transformOrigin = TransformOrigin(0f, 0.5f)
@@ -151,8 +173,8 @@ fun ScheduleScreen(vm: AppViewModel, onBack: () -> Unit) {
         val list = vm.data.lessons.filter { it.day == day }.sortedBy { it.number }
         if (list.isEmpty()) EmptyState(vm, "В этот день уроков нет")
         else LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
-            items(list) { l ->
-                SlantCard(Modifier.fillMaxWidth()) {
+            itemsIndexed(list, key = { _, l -> "$day-${l.number}-${l.subject}" }) { i, l ->
+                SlantCard(Modifier.fillMaxWidth().appear(i)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         BigText(l.number.toString(), 40, P3.Cyan)
                         Spacer(Modifier.width(16.dp))
@@ -200,8 +222,8 @@ fun GradesScreen(vm: AppViewModel, onBack: () -> Unit) {
         if (tab == 0) {
             if (vm.data.grades.isEmpty()) EmptyState(vm, "Оценок пока нет")
             else LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
-                items(vm.data.grades) { g ->
-                    SlantCard(Modifier.fillMaxWidth()) {
+                itemsIndexed(vm.data.grades) { i, g ->
+                    SlantCard(Modifier.fillMaxWidth().appear(i)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 BigText(g.subject, 17)
@@ -254,9 +276,9 @@ fun HomeworkScreen(vm: AppViewModel, onBack: () -> Unit) {
     }
     ScreenFrame("Домашка", onBack) {
         LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
-            items(days) { d ->
+            itemsIndexed(days) { i, d ->
                 val hw = vm.data.homework.filter { it.dueIso == d.toString() }
-                SlantCard(Modifier.fillMaxWidth()) {
+                SlantCard(Modifier.fillMaxWidth().appear(i)) {
                     BigText(
                         d.dayOfWeek.getDisplayName(TextStyle.SHORT, locale).uppercase() +
                             "  " + "%02d.%02d".format(d.dayOfMonth, d.monthValue),

@@ -1,5 +1,7 @@
 package ru.diary.reload.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -22,6 +24,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -157,3 +163,17 @@ fun BigText(text: String, size: Int, color: Color = P3.White) {
 }
 
 val SpacedList = Arrangement.spacedBy(10.dp)
+
+/** Плавное появление: карточка выезжает слева с задержкой по номеру. */
+@Composable
+fun Modifier.appear(index: Int): Modifier {
+    val a = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        delay((index * 50L).coerceAtMost(450L))
+        a.animateTo(1f, tween(320, easing = FastOutSlowInEasing))
+    }
+    return this.graphicsLayer {
+        alpha = a.value
+        translationX = (1f - a.value) * 140f
+    }
+}
