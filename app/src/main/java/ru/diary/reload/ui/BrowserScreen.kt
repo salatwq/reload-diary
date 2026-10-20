@@ -114,7 +114,6 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit) {
                         vm.markLoggedIn()
                         note = "Готово. Нажмите «ЗАКРЫТЬ» и «ОБНОВИТЬ ДАННЫЕ» в Аккаунте."
                     }
-                    SlantButton("ЭТО ОЦЕНКИ", filled = false) { save(web, vm, "grades", "Оценки") { note = it } }
                     SlantButton("МОЯ ШКОЛА", filled = false) {
                         web?.loadUrl("https://www.gosuslugi.ru/school")
                     }
