@@ -55,6 +55,8 @@ fun MenuScreen(vm: AppViewModel, onOpen: (Screen) -> Unit) {
 
     P3Background {
         Column(Modifier.fillMaxSize().systemBarsPadding().padding(20.dp)) {
+            BigText("MY SCHOOL RELOAD", 13, P3.Cyan)
+            Spacer(Modifier.height(6.dp))
             // «календарь» в шапке
             Row(verticalAlignment = Alignment.Bottom) {
                 BigText(now.dayOfMonth.toString(), 92)
@@ -116,19 +118,36 @@ private fun MenuItem(label: String, selected: Boolean, onClick: () -> Unit) {
 @Composable
 fun ScheduleScreen(vm: AppViewModel, onBack: () -> Unit) {
     var day by rememberSaveable { mutableIntStateOf(LocalDate.now().dayOfWeek.value.let { if (it > 6) 1 else it }) }
+    val today = LocalDate.now()
+    val monday = remember { (if (today.dayOfWeek == DayOfWeek.SUNDAY) today.plusDays(1) else today).with(DayOfWeek.MONDAY) }
+    val locale = Locale("ru")
     ScreenFrame("Расписание", onBack) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             DAYS.forEachIndexed { i, d ->
                 val on = day == i + 1
-                Box(
+                val date = monday.plusDays(i.toLong())
+                Column(
                     Modifier.weight(1f).clip(SlantShape(8.dp))
                         .background(if (on) P3.Cyan else P3.Navy)
-                        .clickable { day = i + 1 }.padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center,
-                ) { BigText(d, 15, if (on) P3.Navy else P3.White) }
+                        .clickable { day = i + 1 }.padding(vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    BigText(d, 11, if (on) P3.Navy else P3.Cyan)
+                    BigText(date.dayOfMonth.toString(), 20, if (on) P3.Navy else P3.White)
+                }
             }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
+        val sel = monday.plusDays((day - 1).toLong())
+        Row(verticalAlignment = Alignment.Bottom) {
+            BigText(sel.dayOfMonth.toString(), 56)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.padding(bottom = 8.dp)) {
+                BigText(sel.month.getDisplayName(TextStyle.FULL, locale).uppercase(), 16, P3.Cyan)
+                BigText(sel.dayOfWeek.getDisplayName(TextStyle.FULL, locale).uppercase(), 13)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
         val list = vm.data.lessons.filter { it.day == day }.sortedBy { it.number }
         if (list.isEmpty()) EmptyState(vm, "В этот день уроков нет")
         else LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
