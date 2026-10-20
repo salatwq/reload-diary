@@ -35,6 +35,30 @@ import org.json.JSONTokener
 import ru.diary.reload.AppViewModel
 import ru.diary.reload.data.SiteConfig
 
+
+/** Перехватывает fetch/XHR и запоминает ответы (для разбора API «Моя школа»). */
+private const val CAPTURE_JS = """
+(function(){
+ if (window.__capInstalled) return; window.__capInstalled = true; window.__cap = [];
+ function skip(u){ return /health|metrika|yandex|\.(css|js|svg|png|woff2?|ico)(\?|${'$'})/.test(u); }
+ function push(m,u,b,s,t){ if(skip(String(u))) return;
+   window.__cap.push({m:m,u:String(u),b:b?String(b).slice(0,400):null,s:s,t:(t||'').slice(0,3000)});
+   if (window.__cap.length>100) window.__cap.shift(); }
+ var of = window.fetch;
+ if (of) window.fetch = function(i,o){
+   var u=(typeof i==='string')?i:(i&&i.url); var m=(o&&o.method)||(i&&i.method)||'GET'; var b=o&&o.body;
+   return of.apply(this,arguments).then(function(r){
+     try{ r.clone().text().then(function(t){push(m,u,b,r.status,t);}); }catch(e){} return r; }); };
+ var ox=XMLHttpRequest.prototype.open, os=XMLHttpRequest.prototype.send;
+ XMLHttpRequest.prototype.open=function(m,u){ this.__m=m; this.__u=u; return ox.apply(this,arguments); };
+ XMLHttpRequest.prototype.send=function(b){ var x=this;
+   x.addEventListener('load',function(){ try{
+     var t=(x.responseType===''||x.responseType==='text')?x.responseText:'';
+     push(x.__m,x.__u,b,x.status,t);}catch(e){} });
+   return os.apply(this,arguments); };
+})();
+"""
+
 /**
  * Встроенный браузер: здесь выполняется вход через Госуслуги, а также указываются
  * страницы расписания/оценок/ДЗ (открыли страницу → нажали кнопку).
@@ -68,6 +92,12 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit) {
                                 val scheme = r.url.scheme ?: ""
                                 return scheme != "http" && scheme != "https"
                             }
+                            override fun onPageStarted(v: WebView, url: String?, f: android.graphics.Bitmap?) {
+                                v.evaluateJavascript(CAPTURE_JS, null)
+                            }
+                            override fun onPageFinished(v: WebView, url: String?) {
+                                v.evaluateJavascript(CAPTURE_JS, null)
+                            }
                         }
                         web = this
                         loadUrl(SiteConfig.BASE)
@@ -87,6 +117,17 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit) {
                     SlantButton("ЭТО РАСПИСАНИЕ", filled = false) { save(web, vm, "schedule", "Расписание") { note = it } }
                     SlantButton("ЭТО ОЦЕНКИ", filled = false) { save(web, vm, "grades", "Оценки") { note = it } }
                     SlantButton("ЭТО ДЗ", filled = false) { save(web, vm, "homework", "Домашка") { note = it } }
+                    SlantButton("МОЯ ШКОЛА", filled = false) {
+                        web?.loadUrl("https://www.gosuslugi.ru/school")
+                    }
+                    SlantButton("КОПИРОВАТЬ ЗАПРОСЫ", filled = false) {
+                        web?.evaluateJavascript("JSON.stringify(window.__cap||[])") { raw ->
+                            val txt = (JSONTokener(raw).nextValue() as? String).orEmpty()
+                            val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            cm.setPrimaryClip(ClipData.newPlainText("capture", txt))
+                            note = "Скопировано запросов: ${txt.count { it == '{' }}. Размер ${txt.length} симв. Внутри могут быть личные данные."
+                        }
+                    }
                     SlantButton("КОПИРОВАТЬ HTML", filled = false) {
                         web?.evaluateJavascript("document.documentElement.outerHTML") { raw ->
                             val html = (JSONTokener(raw).nextValue() as? String).orEmpty()
