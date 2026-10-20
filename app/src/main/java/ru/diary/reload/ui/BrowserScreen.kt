@@ -40,10 +40,10 @@ import ru.diary.reload.data.SiteConfig
 private const val CAPTURE_JS = """
 (function(){
  if (window.__capInstalled) return; window.__capInstalled = true; window.__cap = [];
- function skip(u){ return /health|metrika|yandex|\.(css|js|svg|png|woff2?|ico)(\?|${'$'})/.test(u); }
+ function skip(u){ return u.indexOf('/api/myschool/')<0 || /regions|disclaimers|auth\/student/.test(u); }
  function push(m,u,b,s,t){ if(skip(String(u))) return;
-   window.__cap.push({m:m,u:String(u),b:b?String(b).slice(0,400):null,s:s,t:(t||'').slice(0,3000)});
-   if (window.__cap.length>100) window.__cap.shift(); }
+   window.__cap.push({m:m,u:String(u),b:b?String(b).slice(0,1500):null,s:s,t:(t||'').slice(0,7000)});
+   if (window.__cap.length>40) window.__cap.shift(); }
  var of = window.fetch;
  if (of) window.fetch = function(i,o){
    var u=(typeof i==='string')?i:(i&&i.url); var m=(o&&o.method)||(i&&i.method)||'GET'; var b=o&&o.body;
