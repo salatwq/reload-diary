@@ -1,5 +1,7 @@
 package ru.diary.reload.data
 
+import java.time.LocalDate
+
 /** Демо-данные, чтобы оценить интерфейс без входа. */
 object Demo {
     private val times = listOf(
@@ -27,6 +29,11 @@ object Demo {
             Triple("ОБЖ", "115", "Фролов С. М.")) +
         day(6, Triple("Классный час", "108", "Смирнова Е. А."), Triple("Алгебра", "214", "Иванова Н. П."))
 
+    private fun hw(offset: Int, subject: String, text: String): Homework {
+        val d = LocalDate.now().plusDays(offset.toLong())
+        return Homework(subject, "%02d.%02d".format(d.dayOfMonth, d.monthValue), text, d.toString())
+    }
+
     val data = DiaryData(
         lessons = lessons,
         grades = listOf(
@@ -39,11 +46,11 @@ object Demo {
             GradeRow("Химия", listOf("2", "3", "4"), "3.00"),
         ),
         homework = listOf(
-            Homework("Алгебра", "22.10", "§12, №345, 348, 351"),
-            Homework("Физика", "22.10", "Лабораторная работа №3, оформить отчёт"),
-            Homework("История", "23.10", "Прочитать параграф 8, ответить на вопросы 1–4"),
-            Homework("Английский язык", "23.10", "Упр. 5 стр. 64, выучить слова Unit 3"),
-            Homework("Химия", "24.10", "Таблица растворимости, задачи 1–6"),
+            hw(0, "Алгебра", "§12, №345, 348, 351"),
+            hw(0, "Физика", "Лабораторная работа №3, оформить отчёт"),
+            hw(1, "История", "Прочитать параграф 8, ответить на вопросы 1–4"),
+            hw(2, "Английский язык", "Упр. 5 стр. 64, выучить слова Unit 3"),
+            hw(4, "Химия", "Таблица растворимости, задачи 1–6"),
         ),
         finals = listOf(
             FinalMark("Алгебра", "1 четверть", "5"), FinalMark("Русский язык", "1 четверть", "4"),

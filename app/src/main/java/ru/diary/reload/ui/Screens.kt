@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ru.diary.reload.AppViewModel
 import ru.diary.reload.Screen
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
@@ -226,18 +228,28 @@ fun GradesScreen(vm: AppViewModel, onBack: () -> Unit) {
 
 @Composable
 fun HomeworkScreen(vm: AppViewModel, onBack: () -> Unit) {
+    val locale = Locale("ru")
+    val days = remember {
+        generateSequence(LocalDate.now()) { it.plusDays(1) }
+            .filter { it.dayOfWeek != DayOfWeek.SUNDAY }.take(6).toList()
+    }
     ScreenFrame("Домашка", onBack) {
-        if (vm.data.homework.isEmpty()) EmptyState(vm, "Заданий нет")
-        else LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
-            items(vm.data.homework) { h ->
+        LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
+            items(days) { d ->
+                val hw = vm.data.homework.filter { it.dueIso == d.toString() }
                 SlantCard(Modifier.fillMaxWidth()) {
-                    Row {
-                        BigText(h.subject, 17, P3.Cyan)
-                        Spacer(Modifier.weight(1f))
-                        if (h.due.isNotBlank()) BigText("до ${h.due}", 14)
+                    BigText(
+                        d.dayOfWeek.getDisplayName(TextStyle.SHORT, locale).uppercase() +
+                            "  " + "%02d.%02d".format(d.dayOfMonth, d.monthValue),
+                        15, P3.Cyan,
+                    )
+                    if (hw.isEmpty()) {
+                        Text("—", color = P3.White.copy(alpha = 0.5f), fontSize = 16.sp)
+                    } else hw.forEach { h ->
+                        Spacer(Modifier.height(6.dp))
+                        BigText(h.subject, 16)
+                        if (h.text.isNotBlank()) Text(h.text, color = P3.White, fontSize = 14.sp)
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Text(h.text, color = P3.White, fontSize = 14.sp)
                 }
             }
         }

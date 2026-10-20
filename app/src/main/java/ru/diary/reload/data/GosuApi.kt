@@ -35,23 +35,25 @@ object GosuApi {
   var st = await r1.json();
   if (!st.length) { Bridge.done(JSON.stringify({ok:false, err:'Нет доступа к дневнику ученика'})); return; }
   var sid = st[0].student_id;
-  function mk(from, to) {
+  function mkOne(i) {
     var body = [];
-    for (var i = from; i <= to; i++) {
-      ['student_marks','student_homeworks_materials','student_lessons'].forEach(function(t){
-        body.push({interval_id: String(i) + '2026', obj_type: t, student_id: sid});
-      });
-    }
+    ['student_marks','student_homeworks_materials','student_lessons'].forEach(function(t){
+      body.push({interval_id: String(i) + '2026', obj_type: t, student_id: sid});
+    });
     return body;
   }
-  async function req(body) {
-    return fetch('/api/myschool/v1/datamart', {method:'POST', credentials:'include',
-      headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(body)});
+  var all = [], code = 0, tasks = [];
+  for (var i = 41; i <= 50; i++) {
+    (function(i){
+      tasks.push(fetch('/api/myschool/v1/datamart', {method:'POST', credentials:'include',
+        headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(mkOne(i))})
+        .then(async function(r){ if (r.ok) { all = all.concat(await r.json()); } else { code = r.status; } })
+        .catch(function(){}));
+    })(i);
   }
-  var r2 = await req(mk(41, 50));
-  if (!r2.ok) r2 = await req(mk(42, 44));
-  if (!r2.ok) { Bridge.done(JSON.stringify({ok:false, err:'Ошибка данных (код ' + r2.status + ')'})); return; }
-  Bridge.done(JSON.stringify({ok:true, data: await r2.json()}));
+  await Promise.all(tasks);
+  if (!all.length) { Bridge.done(JSON.stringify({ok:false, err:'Данные не получены (код ' + code + ')'})); return; }
+  Bridge.done(JSON.stringify({ok:true, data: all}));
  } catch (e) { Bridge.done(JSON.stringify({ok:false, err:String(e)})); }
 })();
 """
@@ -148,17 +150,13 @@ object GosuApi {
 
     private fun JSONObject.str(k: String): String = optString(k).takeIf { it.isNotBlank() && it != "null" } ?: ""
 
-    private fun parseHomework(list: List<JSONObject>): List<Homework> {
-        val today = LocalDate.now().toString()
-        val all = list.distinctBy { it.optString("id") }.filter { it.str("subject_name").isNotBlank() }
-        val upcoming = all.filter { it.str("plan_ready_date") >= today }.sortedBy { it.str("plan_ready_date") }
-        val past = all.filter { it.str("plan_ready_date") < today }.sortedByDescending { it.str("plan_ready_date") }.take(10)
-        return (upcoming + past).map {
-            val d = it.str("plan_ready_date")
-            val due = if (d.length >= 10) d.substring(8, 10) + "." + d.substring(5, 7) else ""
-            Homework(it.str("subject_name"), due, it.str("description").trim())
-        }
-    }
+    private fun parseHomework(list: List<JSONObject>): List<Homework> =
+        list.distinctBy { it.optString("id") }
+            .filter { it.str("subject_name").isNotBlank() && it.str("plan_ready_date").length >= 10 }
+            .map {
+                val d = it.str("plan_ready_date").take(10)
+                Homework(it.str("subject_name"), d.substring(8, 10) + "." + d.substring(5, 7), it.str("description").trim(), d)
+            }
 
     /** Уроки текущей недели (в воскресенье — следующей) из student_lessons. */
     private fun parseLessons(list: List<JSONObject>): List<Lesson> {

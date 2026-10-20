@@ -11,7 +11,7 @@ data class Lesson(
 
 data class GradeRow(val subject: String, val marks: List<String>, val average: String)
 
-data class Homework(val subject: String, val due: String, val text: String)
+data class Homework(val subject: String, val due: String, val text: String, val dueIso: String = "")
 
 data class FinalMark(val subject: String, val period: String, val value: String)
 
