@@ -26,7 +26,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun url(key: String): String? = prefs.getString("url_$key", null)
     fun saveUrl(key: String, url: String) = prefs.edit().putString("url_$key", url).apply()
 
-    fun setDemo(value: Boolean) {
+    fun switchDemo(value: Boolean) {
         demo = value
         prefs.edit().putBoolean("demo", value).apply()
         refresh()
@@ -35,13 +35,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Вызывается после того, как пользователь вошёл через Госуслуги во встроенном браузере. */
     fun markLoggedIn() {
         CookieManager.getInstance().flush()
-        setDemo(false)
+        switchDemo(false)
     }
 
     fun logout() {
         CookieManager.getInstance().removeAllCookies(null)
         CookieManager.getInstance().flush()
-        setDemo(true)
+        switchDemo(true)
     }
 
     fun refresh() {

@@ -227,7 +227,7 @@ fun AccountScreen(vm: AppViewModel, onBack: () -> Unit, onLogin: () -> Unit) {
             SlantButton(
                 if (vm.demo) "ВЫЙТИ ИЗ ДЕМО (реальные данные)" else "ВКЛЮЧИТЬ ДЕМО",
                 Modifier.fillMaxWidth(), filled = false,
-            ) { vm.setDemo(!vm.demo) }
+            ) { vm.switchDemo(!vm.demo) }
             SlantButton("ВЫЙТИ ИЗ АККАУНТА", Modifier.fillMaxWidth(), filled = false) { vm.logout() }
         }
         Spacer(Modifier.height(14.dp))
