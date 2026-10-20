@@ -18,7 +18,17 @@ jobs:
         with:
           gradle-version: 8.11.1
       - name: Build debug APK
-        run: gradle assembleDebug --no-daemon
+        run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+      - name: Save log
+        if: failure()
+        run: |
+          git config user.name ci && git config user.email ci@example.com
+          git checkout --orphan buildlog && git rm -rf . -q
+          tail -n 150 ../build.log > build.log 2>/dev/null || true
+          cp "$GITHUB_WORKSPACE/build.log" build.log 2>/dev/null || true
+          git add build.log && git commit -qm log && git push -f origin buildlog
       - name: Publish release with APK
         uses: softprops/action-gh-release@v2
         with:
