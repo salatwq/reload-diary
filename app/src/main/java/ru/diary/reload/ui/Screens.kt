@@ -113,7 +113,7 @@ private fun MenuItem(label: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 fun ScheduleScreen(vm: AppViewModel, onBack: () -> Unit) {
-    var day by rememberSaveable { mutableIntStateOf(LocalDate.now().dayOfWeek.value.coerceAtMost(6)) }
+    var day by rememberSaveable { mutableIntStateOf(LocalDate.now().dayOfWeek.value.let { if (it > 6) 1 else it }) }
     ScreenFrame("Расписание", onBack) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             DAYS.forEachIndexed { i, d ->

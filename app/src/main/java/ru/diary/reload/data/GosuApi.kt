@@ -32,7 +32,7 @@ object GosuApi {
   function mk(from, to) {
     var body = [];
     for (var i = from; i <= to; i++) {
-      ['student_marks','student_homeworks_materials','student_events'].forEach(function(t){
+      ['student_marks','student_homeworks_materials','student_lessons'].forEach(function(t){
         body.push({interval_id: String(i) + '2026', obj_type: t, student_id: sid});
       });
     }
@@ -90,7 +90,7 @@ object GosuApi {
         val arr = o.getJSONArray("data")
         val marks = mutableListOf<JSONObject>()
         val homework = mutableListOf<JSONObject>()
-        val events = mutableListOf<JSONObject>()
+        val lessons = mutableListOf<JSONObject>()
         for (i in 0 until arr.length()) {
             val e = arr.getJSONObject(i)
             val data = e.optJSONArray("data") ?: continue
@@ -98,7 +98,7 @@ object GosuApi {
             when (e.optString("obj_type")) {
                 "student_marks" -> marks += list
                 "student_homeworks_materials" -> homework += list
-                "student_events" -> events += list
+                "student_lessons" -> lessons += list
             }
         }
         val valid = marks.distinctBy { it.optString("id") }.filter {
@@ -106,7 +106,7 @@ object GosuApi {
                 it.optString("mark_value1").isNotBlank() && it.optString("mark_value1") != "null"
         }
         val (fin, cur) = valid.partition { isFinal(it) }
-        return DiaryData(parseEvents(events), parseMarks(cur), parseHomework(homework), parseFinals(fin))
+        return DiaryData(parseLessons(lessons), parseMarks(cur), parseHomework(homework), parseFinals(fin))
     }
 
     private val FINAL = Regex("(?i)итог|четверт|полугод|годов|final|period|quarter|semester|annual")
@@ -135,34 +135,45 @@ object GosuApi {
             }
             .sortedBy { it.subject }
 
-    private fun parseHomework(list: List<JSONObject>): List<Homework> =
-        list.distinctBy { it.optString("id") }
-            .filter { it.optString("subject_name").isNotBlank() }
-            .sortedByDescending { it.optString("plan_ready_date") }
-            .take(40)
-            .map {
-                val d = it.optString("plan_ready_date")
-                val due = if (d.length >= 10) d.substring(8, 10) + "." + d.substring(5, 7) else ""
-                Homework(it.optString("subject_name"), due, it.optString("description").trim())
-            }
+    private fun JSONObject.str(k: String): String = optString(k).takeIf { it.isNotBlank() && it != "null" } ?: ""
 
-    /** Best-effort: формат событий/расписания пока не подтверждён реальными данными. */
-    private fun parseEvents(list: List<JSONObject>): List<Lesson> {
-        val monday = LocalDate.now().with(DayOfWeek.MONDAY)
-        val sunday = monday.plusDays(6)
-        val items = list.mapNotNull { e ->
-            val start = e.optString("start_datetime")
-            val subject = e.optString("subject_name")
-            if (start.length < 16 || subject.isBlank()) return@mapNotNull null
-            val dt = runCatching { LocalDateTime.parse(start.take(16).replace(' ', 'T')) }.getOrNull() ?: return@mapNotNull null
-            if (dt.toLocalDate() < monday || dt.toLocalDate() > sunday) return@mapNotNull null
-            val end = e.optString("end_datetime").let { if (it.length >= 16) it.substring(11, 16) else "" }
-            Triple(dt, subject, listOf(end, e.optString("room_name"), e.optString("teacher_name")))
+    private fun parseHomework(list: List<JSONObject>): List<Homework> {
+        val today = LocalDate.now().toString()
+        val all = list.distinctBy { it.optString("id") }.filter { it.str("subject_name").isNotBlank() }
+        val upcoming = all.filter { it.str("plan_ready_date") >= today }.sortedBy { it.str("plan_ready_date") }
+        val past = all.filter { it.str("plan_ready_date") < today }.sortedByDescending { it.str("plan_ready_date") }.take(10)
+        return (upcoming + past).map {
+            val d = it.str("plan_ready_date")
+            val due = if (d.length >= 10) d.substring(8, 10) + "." + d.substring(5, 7) else ""
+            Homework(it.str("subject_name"), due, it.str("description").trim())
         }
+    }
+
+    /** Уроки текущей недели (в воскресенье — следующей) из student_lessons. */
+    private fun parseLessons(list: List<JSONObject>): List<Lesson> {
+        val today = LocalDate.now()
+        val monday = (if (today.dayOfWeek == DayOfWeek.SUNDAY) today.plusDays(1) else today).with(DayOfWeek.MONDAY)
+        val sunday = monday.plusDays(6)
+        val items = list
+            .distinctBy { it.str("lesson_id").ifEmpty { it.str("id") } }
+            .filter { it.optBoolean("active", true) && it.str("subject_name").isNotBlank() }
+            .mapNotNull { e ->
+                val start = e.str("start_datetime")
+                if (start.length < 16) return@mapNotNull null
+                val dt = runCatching { LocalDateTime.parse(start.take(16).replace(' ', 'T')) }.getOrNull()
+                    ?: return@mapNotNull null
+                if (dt.toLocalDate() < monday || dt.toLocalDate() > sunday || dt.dayOfWeek == DayOfWeek.SUNDAY) return@mapNotNull null
+                Pair(dt, e)
+            }
         return items.groupBy { it.first.dayOfWeek.value }.flatMap { (day, es) ->
-            es.sortedBy { it.first }.mapIndexed { i, (dt, subject, x) ->
+            es.sortedBy { it.first }.mapIndexed { i, (dt, e) ->
+                val end = e.str("end_datetime").let { if (it.length >= 16) it.substring(11, 16) else "" }
                 val t = dt.toLocalTime().toString().take(5)
-                Lesson(day.coerceAtMost(6), i + 1, if (x[0].isNotBlank()) "$t–${x[0]}" else t, subject, x[1], x[2])
+                val last = e.str("lastname")
+                val teacher = listOf(last, e.str("firstname").take(1).let { if (it.isEmpty()) "" else "$it." },
+                    e.str("patronymic").take(1).let { if (it.isEmpty()) "" else "$it." })
+                    .filter { it.isNotEmpty() }.joinToString(" ")
+                Lesson(day, i + 1, if (end.isNotEmpty()) "$t–$end" else t, e.str("subject_name"), e.str("room"), teacher)
             }
         }
     }
