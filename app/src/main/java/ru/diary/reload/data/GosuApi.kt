@@ -101,8 +101,27 @@ object GosuApi {
                 "student_events" -> events += list
             }
         }
-        return DiaryData(parseEvents(events), parseMarks(marks), parseHomework(homework))
+        val valid = marks.distinctBy { it.optString("id") }.filter {
+            it.optString("subject_name").isNotBlank() &&
+                it.optString("mark_value1").isNotBlank() && it.optString("mark_value1") != "null"
+        }
+        val (fin, cur) = valid.partition { isFinal(it) }
+        return DiaryData(parseEvents(events), parseMarks(cur), parseHomework(homework), parseFinals(fin))
     }
+
+    private val FINAL = Regex("(?i)итог|четверт|полугод|годов|final|period|quarter|semester|annual")
+
+    /** Итоговые определяем по типу работы; точный признак уточним по реальным данным. */
+    private fun isFinal(o: JSONObject) =
+        listOf("work_type_code", "work_type_description", "work_kind", "work_name")
+            .any { FINAL.containsMatchIn(o.optString(it)) }
+
+    private fun parseFinals(list: List<JSONObject>): List<FinalMark> =
+        list.sortedWith(compareBy({ it.optString("subject_name") }, { it.optString("mark_date") })).map {
+            val label = listOf("work_type_description", "work_name", "work_kind")
+                .map { k -> it.optString(k) }.firstOrNull { v -> v.isNotBlank() && v != "null" }.orEmpty()
+            FinalMark(it.optString("subject_name"), label, it.optString("mark_value1"))
+        }
 
     private fun parseMarks(list: List<JSONObject>): List<GradeRow> =
         list.distinctBy { it.optString("id") }

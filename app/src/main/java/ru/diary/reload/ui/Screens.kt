@@ -162,23 +162,57 @@ private fun markColor(m: String) = when (m.firstOrNull()) {
 
 @Composable
 fun GradesScreen(vm: AppViewModel, onBack: () -> Unit) {
+    var tab by rememberSaveable { mutableIntStateOf(0) }
     ScreenFrame("Оценки", onBack) {
-        if (vm.data.grades.isEmpty()) EmptyState(vm, "Оценок пока нет")
-        else LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
-            items(vm.data.grades) { g ->
-                SlantCard(Modifier.fillMaxWidth()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            BigText(g.subject, 17)
-                            Spacer(Modifier.height(6.dp))
-                            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                g.marks.forEach { BigText(it, 22, markColor(it)) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("ТЕКУЩИЕ", "ИТОГОВЫЕ").forEachIndexed { i, t ->
+                val on = tab == i
+                Box(
+                    Modifier.weight(1f).clip(SlantShape(8.dp))
+                        .background(if (on) P3.Cyan else P3.Navy)
+                        .clickable { tab = i }.padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) { BigText(t, 15, if (on) P3.Navy else P3.White) }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        if (tab == 0) {
+            if (vm.data.grades.isEmpty()) EmptyState(vm, "Оценок пока нет")
+            else LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
+                items(vm.data.grades) { g ->
+                    SlantCard(Modifier.fillMaxWidth()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                BigText(g.subject, 17)
+                                Spacer(Modifier.height(6.dp))
+                                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    g.marks.forEach { BigText(it, 22, markColor(it)) }
+                                }
+                            }
+                            if (g.average.isNotBlank()) {
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("СР. БАЛЛ", color = P3.White.copy(alpha = 0.6f), fontSize = 10.sp)
+                                    BigText(g.average, 24, P3.Cyan)
+                                }
                             }
                         }
-                        if (g.average.isNotBlank()) {
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text("СР. БАЛЛ", color = P3.White.copy(alpha = 0.6f), fontSize = 10.sp)
-                                BigText(g.average, 24, P3.Cyan)
+                    }
+                }
+            }
+        } else {
+            val bySubject = vm.data.finals.groupBy { it.subject }
+            if (bySubject.isEmpty()) EmptyState(vm, "Итоговых оценок нет")
+            else LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
+                items(bySubject.entries.toList()) { (subject, list) ->
+                    SlantCard(Modifier.fillMaxWidth()) {
+                        BigText(subject, 17)
+                        Spacer(Modifier.height(6.dp))
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            list.forEach { f ->
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(f.period, color = P3.White.copy(alpha = 0.6f), fontSize = 10.sp)
+                                    BigText(f.value, 24, markColor(f.value))
+                                }
                             }
                         }
                     }
