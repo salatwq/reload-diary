@@ -24,10 +24,10 @@ jobs:
       - name: Save log
         if: failure()
         run: |
+          tail -n 200 build.log > /tmp/log.txt
           git config user.name ci && git config user.email ci@example.com
           git checkout --orphan buildlog && git rm -rf . -q
-          tail -n 150 ../build.log > build.log 2>/dev/null || true
-          cp "$GITHUB_WORKSPACE/build.log" build.log 2>/dev/null || true
+          cp /tmp/log.txt build.log
           git add build.log && git commit -qm log && git push -f origin buildlog
       - name: Publish release with APK
         uses: softprops/action-gh-release@v2
