@@ -54,16 +54,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             loading = true
             status = "Загрузка…"
             try {
-                data = withTimeout(45_000) { GosuApi.load(getApplication<Application>()) }
+                data = withTimeout(70_000) { GosuApi.load(getApplication<Application>()) }
                 CookieManager.getInstance().flush()
                 status = when {
                     data.isEmpty -> "Загружено, но данных нет."
-                    data.lessons.isEmpty() -> "Обновлено. Расписание пока не подключено."
+                    data.lessons.isEmpty() -> "Обновлено. Уроков на этой неделе в данных нет."
                     else -> "Обновлено: уроков ${data.lessons.size}, предметов с оценками ${data.grades.size}"
                 }
             } catch (e: Exception) {
                 status = if (e is kotlinx.coroutines.TimeoutCancellationException)
-                    "Нет ответа от Госуслуг за 45 с. Проверьте интернет и войдите заново: Аккаунт → Войти → «Я ВОШЁЛ»."
+                    "Нет ответа от Госуслуг за 70 с. Проверьте интернет и войдите заново: Аккаунт → Войти → «Я ВОШЁЛ»."
                 else "Ошибка: ${e.message ?: e.javaClass.simpleName}"
             } finally {
                 loading = false

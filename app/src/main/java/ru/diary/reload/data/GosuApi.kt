@@ -43,11 +43,18 @@ object GosuApi {
     ids.forEach(function(i){ types.forEach(function(t){ b.push({interval_id: i, obj_type: t, student_id: sid}); }); });
     return b;
   }
-  function post(body) {
-    return fetch('/api/myschool/v1/datamart', {method:'POST', credentials:'include',
-      headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(body)})
-      .then(async function(r){ if (r.ok) { all = all.concat(await r.json()); } else { code = r.status; } })
-      .catch(function(){});
+  async function post(body) {
+    // 202 = «данные готовятся» — как и сама «Моя школа», повторяем запрос
+    for (var n = 0; n < 8; n++) {
+      try {
+        var r = await fetch('/api/myschool/v1/datamart', {method:'POST', credentials:'include',
+          headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(body)});
+        if (r.status === 200) { all = all.concat(await r.json()); return; }
+        if (r.status !== 202) { code = r.status; return; }
+        code = 202;
+      } catch (e) {}
+      await new Promise(function(res){ setTimeout(res, 2500); });
+    }
   }
   for (var k = 0; k < ALL.length; k += 5) tasks.push(post(objs(ALL.slice(k, k + 5), ['student_marks'])));
   NEAR.forEach(function(i){ tasks.push(post(objs([i], ['student_lessons','student_homeworks_materials']))); });
@@ -153,7 +160,18 @@ object GosuApi {
             FinalMark(it.optString("subject_name"), label, it.optString("mark_value1"))
         }
 
-    private fun parseMarks(list: List<JSONObject>): List<GradeRow> =
+    /** Начало текущего полугодия: до 31.12 — 1-е (с 1 сентября), с 1 января — 2-е. */
+    private fun halfYearStart(): String {
+        val t = LocalDate.now()
+        return (if (t.monthValue >= 9) LocalDate.of(t.year, 9, 1) else LocalDate.of(t.year, 1, 1)).toString()
+    }
+
+    private fun parseMarks(list: List<JSONObject>): List<GradeRow> {
+        val start = halfYearStart()
+        return parseMarksIn(list.filter { it.str("mark_date").let { d -> d.isEmpty() || d >= start } })
+    }
+
+    private fun parseMarksIn(list: List<JSONObject>): List<GradeRow> =
         list.distinctBy { it.optString("id") }
             .filter { it.optString("subject_name").isNotBlank() && it.optString("mark_value1").isNotBlank() && it.optString("mark_value1") != "null" }
             .groupBy { it.optString("subject_name") }

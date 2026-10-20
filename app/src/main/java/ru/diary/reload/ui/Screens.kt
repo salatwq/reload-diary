@@ -102,17 +102,6 @@ fun MenuScreen(vm: AppViewModel, onOpen: (Screen) -> Unit) {
                     }
                 }
             }
-            Spacer(Modifier.weight(1f))
-            // подсказка внизу, как в игре
-            Box(
-                Modifier.fillMaxWidth().clip(SlantShape(16.dp)).background(P3.Navy)
-                    .padding(horizontal = 28.dp, vertical = 12.dp),
-            ) {
-                Text(
-                    items[sel].caption + "  ·  нажмите ещё раз, чтобы открыть",
-                    color = P3.Cyan, fontSize = 13.sp, fontStyle = FontStyle.Italic,
-                )
-            }
         }
     }
 }
@@ -256,6 +245,63 @@ fun GradesScreen(vm: AppViewModel, onBack: () -> Unit) {
                                     Text(f.period, color = P3.White.copy(alpha = 0.6f), fontSize = 10.sp)
                                     BigText(f.value, 24, markColor(f.value))
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ───────────────────────── Путь медали ─────────────────────────
+
+private data class MedalRow(val subject: String, val avg: Double, val n: Int, val need: Int)
+
+@Composable
+fun MedalScreen(vm: AppViewModel, onBack: () -> Unit) {
+    val first = LocalDate.now().monthValue >= 9
+    val target = 4.6
+    val rows = vm.data.grades.mapNotNull { g ->
+        val nums = g.marks.mapNotNull { m -> m.toIntOrNull()?.takeIf { it in 2..5 } }
+        if (nums.isEmpty()) null else {
+            val n = nums.size
+            val sum = nums.sum()
+            val avg = sum.toDouble() / n
+            val need = if (avg >= target - 1e-9) 0 else Math.ceil((target * n - sum) / (5 - target) - 1e-9).toInt()
+            MedalRow(g.subject, avg, n, need)
+        }
+    }.sortedWith(compareByDescending<MedalRow> { it.need }.thenBy { it.subject })
+    ScreenFrame("Путь медали", onBack) {
+        SlantCard(Modifier.fillMaxWidth()) {
+            BigText(if (first) "1 ПОЛУГОДИЕ" else "2 ПОЛУГОДИЕ", 16, P3.Cyan)
+            Text(
+                "Цель: средний балл 4.60 и выше. Показано, сколько пятёрок подряд нужно получить.",
+                color = P3.White.copy(alpha = 0.8f), fontSize = 12.sp,
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        if (rows.isEmpty()) EmptyState(vm, "Оценок в полугодии пока нет")
+        else LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
+            itemsIndexed(rows) { i, r ->
+                SlantCard(Modifier.fillMaxWidth().appear(i)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            BigText(r.subject, 16)
+                            Text(
+                                "средний " + String.format(Locale.US, "%.2f", r.avg) + "  ·  оценок " + r.n,
+                                color = P3.White.copy(alpha = 0.75f), fontSize = 12.sp,
+                            )
+                        }
+                        if (r.need == 0) {
+                            Column(horizontalAlignment = Alignment.End) {
+                                BigText("✓", 28, P3.Cyan)
+                                Text("цель взята", color = P3.White.copy(alpha = 0.6f), fontSize = 10.sp)
+                            }
+                        } else {
+                            Column(horizontalAlignment = Alignment.End) {
+                                BigText("×" + r.need, 28, P3.Cyan)
+                                Text("пятёрок", color = P3.White.copy(alpha = 0.6f), fontSize = 10.sp)
                             }
                         }
                     }

@@ -27,6 +27,7 @@ import ru.diary.reload.ui.AccountScreen
 import ru.diary.reload.ui.BrowserScreen
 import ru.diary.reload.ui.GradesScreen
 import ru.diary.reload.ui.HomeworkScreen
+import ru.diary.reload.ui.MedalScreen
 import ru.diary.reload.ui.MenuScreen
 import ru.diary.reload.ui.ScheduleScreen
 
@@ -35,6 +36,7 @@ enum class Screen(val title: String, val caption: String) {
     MENU("", ""),
     SCHEDULE("Расписание", "Уроки на неделю"),
     GRADES("Оценки", "Отметки и средний балл"),
+    MEDAL("Путь медали", "Сколько пятёрок нужно до 4.6"),
     HOMEWORK("Домашка", "Что задали"),
     ACCOUNT("Аккаунт", "Вход через Госуслуги, данные"),
     BROWSER("", ""),
@@ -70,6 +72,7 @@ fun App(vm: AppViewModel) {
                 Screen.MENU -> MenuScreen(vm) { screen = it }
                 Screen.SCHEDULE -> ScheduleScreen(vm, back)
                 Screen.GRADES -> GradesScreen(vm, back)
+                Screen.MEDAL -> MedalScreen(vm, back)
                 Screen.HOMEWORK -> HomeworkScreen(vm, back)
                 Screen.ACCOUNT -> AccountScreen(vm, back) { screen = Screen.BROWSER }
                 Screen.BROWSER -> BrowserScreen(vm) { screen = Screen.ACCOUNT }
