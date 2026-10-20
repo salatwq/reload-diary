@@ -42,8 +42,13 @@ private const val CAPTURE_JS = """
 (function(){
  if (window.__capInstalled) return; window.__capInstalled = true; window.__cap = [];
  function skip(u){ return u.indexOf('/api/myschool/')<0 || /regions|disclaimers|auth\/student/.test(u); }
+ function summ(u,t){ if(u.indexOf('datamart')<0) return t.slice(0,3000);
+  try{ var j=JSON.parse(t); if(!Array.isArray(j)) return t.slice(0,3000);
+   return JSON.stringify(j.map(function(o){ var d=o.data||[]; return {t:o.obj_type,i:o.interval_id,n:d.length,
+    r:d.slice(0,120).map(function(x){ return [x.subject_name,x.start_datetime,x.end_datetime,x.active,x.lesson_type,x.mark_value1,x.mark_date,x.work_type_code,x.work_type_description,x.work_kind,x.plan_ready_date,x.skipping_description]; })}; }));
+  }catch(e){ return t.slice(0,3000); } }
  function push(m,u,b,s,t){ if(skip(String(u))) return;
-   window.__cap.push({m:m,u:String(u),b:b?String(b).slice(0,1500):null,s:s,t:(t||'').slice(0,7000)});
+   window.__cap.push({m:m,u:String(u),b:b?String(b).slice(0,1500):null,s:s,t:summ(String(u),t||'')});
    if (window.__cap.length>40) window.__cap.shift(); }
  var of = window.fetch;
  if (of) window.fetch = function(i,o){

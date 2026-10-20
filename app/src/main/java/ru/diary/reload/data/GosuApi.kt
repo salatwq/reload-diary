@@ -16,6 +16,7 @@ import org.json.JSONObject
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.temporal.IsoFields
 import java.util.Locale
 import kotlin.coroutines.resume
 
@@ -35,28 +36,44 @@ object GosuApi {
   var st = await r1.json();
   if (!st.length) { Bridge.done(JSON.stringify({ok:false, err:'Нет доступа к дневнику ученика'})); return; }
   var sid = st[0].student_id;
-  function mkOne(i) {
-    var body = [];
-    ['student_marks','student_homeworks_materials','student_lessons'].forEach(function(t){
-      body.push({interval_id: String(i) + '2026', obj_type: t, student_id: sid});
-    });
-    return body;
-  }
+  var ALL = __ALL__, NEAR = __NEAR__;
   var all = [], code = 0, tasks = [];
-  for (var i = 41; i <= 50; i++) {
-    (function(i){
-      tasks.push(fetch('/api/myschool/v1/datamart', {method:'POST', credentials:'include',
-        headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(mkOne(i))})
-        .then(async function(r){ if (r.ok) { all = all.concat(await r.json()); } else { code = r.status; } })
-        .catch(function(){}));
-    })(i);
+  function objs(ids, types) {
+    var b = [];
+    ids.forEach(function(i){ types.forEach(function(t){ b.push({interval_id: i, obj_type: t, student_id: sid}); }); });
+    return b;
   }
+  function post(body) {
+    return fetch('/api/myschool/v1/datamart', {method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(body)})
+      .then(async function(r){ if (r.ok) { all = all.concat(await r.json()); } else { code = r.status; } })
+      .catch(function(){});
+  }
+  for (var k = 0; k < ALL.length; k += 5) tasks.push(post(objs(ALL.slice(k, k + 5), ['student_marks'])));
+  NEAR.forEach(function(i){ tasks.push(post(objs([i], ['student_lessons','student_homeworks_materials']))); });
   await Promise.all(tasks);
   if (!all.length) { Bridge.done(JSON.stringify({ok:false, err:'Данные не получены (код ' + code + ')'})); return; }
   Bridge.done(JSON.stringify({ok:true, data: all}));
  } catch (e) { Bridge.done(JSON.stringify({ok:false, err:String(e)})); }
 })();
 """
+
+    /** Интервалы в «Моей школе» = номер недели ISO + учебный год (432026 = 43-я неделя, учебный год 2026). */
+    private fun buildJs(): String {
+        val today = LocalDate.now()
+        val acYear = if (today.monthValue >= 8) today.year else today.year - 1
+        fun id(d: LocalDate, y: Int) = "${d.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)}$y"
+        val all = linkedSetOf<String>()
+        var d = LocalDate.of(acYear, 9, 1).with(DayOfWeek.MONDAY)
+        while (!d.isAfter(today.plusWeeks(1))) {
+            all += id(d, acYear)
+            if (d.year > acYear) all += id(d, d.year)   // на случай, если суффикс — календарный год
+            d = d.plusWeeks(1)
+        }
+        val near = linkedSetOf(id(today, acYear), id(today.plusWeeks(1), acYear))
+        fun arr(c: Collection<String>) = c.joinToString(",", "[", "]") { "'$it'" }
+        return JS.replace("__ALL__", arr(all)).replace("__NEAR__", arr(near))
+    }
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     suspend fun load(ctx: Context): DiaryData = suspendCancellableCoroutine { cont ->
@@ -87,7 +104,7 @@ object GosuApi {
                 val host = Uri.parse(url ?: "").host.orEmpty()
                 if (host == "www.gosuslugi.ru") {
                     started = true
-                    main.postDelayed({ view.evaluateJavascript(JS, null) }, 1500)
+                    main.postDelayed({ view.evaluateJavascript(buildJs(), null) }, 1500)
                 } else if (host.isNotEmpty() && host.endsWith("gosuslugi.ru")) {
                     finish(Result.failure(Exception("Сессия закончилась — войдите заново (Аккаунт → Войти)")))
                 }

@@ -59,7 +59,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 status = when {
                     data.isEmpty -> "Загружено, но данных нет."
                     data.lessons.isEmpty() -> "Обновлено. Расписание пока не подключено."
-                    else -> "Обновлено"
+                    else -> "Обновлено: уроков ${data.lessons.size}, предметов с оценками ${data.grades.size}"
                 }
             } catch (e: Exception) {
                 status = if (e is kotlinx.coroutines.TimeoutCancellationException)
