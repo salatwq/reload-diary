@@ -163,7 +163,7 @@ fun ScheduleScreen(vm: AppViewModel, onBack: () -> Unit) {
         if (list.isEmpty()) EmptyState(vm, "В этот день уроков нет")
         else LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
             itemsIndexed(list, key = { _, l -> "$day-${l.number}-${l.subject}" }) { i, l ->
-                SlantCard(Modifier.fillMaxWidth().appear(i)) {
+                SlantCard(Modifier.fillMaxWidth()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         BigText(l.number.toString(), 40, P3.Cyan)
                         Spacer(Modifier.width(16.dp))
@@ -212,7 +212,7 @@ fun GradesScreen(vm: AppViewModel, onBack: () -> Unit) {
             if (vm.data.grades.isEmpty()) EmptyState(vm, "Оценок пока нет")
             else LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
                 itemsIndexed(vm.data.grades) { i, g ->
-                    SlantCard(Modifier.fillMaxWidth().appear(i)) {
+                    SlantCard(Modifier.fillMaxWidth()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 BigText(g.subject, 17)
@@ -260,7 +260,7 @@ private data class MedalRow(val subject: String, val avg: Double, val n: Int, va
 
 @Composable
 fun MedalScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val first = LocalDate.now().monthValue >= 9
+    val first = LocalDate.now().monthValue >= 7
     val target = 4.6
     val rows = vm.data.grades.mapNotNull { g ->
         val nums = g.marks.mapNotNull { m -> m.toIntOrNull()?.takeIf { it in 2..5 } }
@@ -284,7 +284,7 @@ fun MedalScreen(vm: AppViewModel, onBack: () -> Unit) {
         if (rows.isEmpty()) EmptyState(vm, "Оценок в полугодии пока нет")
         else LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
             itemsIndexed(rows) { i, r ->
-                SlantCard(Modifier.fillMaxWidth().appear(i)) {
+                SlantCard(Modifier.fillMaxWidth()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             BigText(r.subject, 16)
@@ -324,7 +324,7 @@ fun HomeworkScreen(vm: AppViewModel, onBack: () -> Unit) {
         LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
             itemsIndexed(days) { i, d ->
                 val hw = vm.data.homework.filter { it.dueIso == d.toString() }
-                SlantCard(Modifier.fillMaxWidth().appear(i)) {
+                SlantCard(Modifier.fillMaxWidth()) {
                     BigText(
                         d.dayOfWeek.getDisplayName(TextStyle.SHORT, locale).uppercase() +
                             "  " + "%02d.%02d".format(d.dayOfMonth, d.monthValue),

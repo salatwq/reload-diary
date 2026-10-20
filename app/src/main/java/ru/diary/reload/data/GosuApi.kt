@@ -68,7 +68,7 @@ object GosuApi {
     /** Интервалы в «Моей школе» = номер недели ISO + учебный год (432026 = 43-я неделя, учебный год 2026). */
     private fun buildJs(): String {
         val today = LocalDate.now()
-        val acYear = if (today.monthValue >= 8) today.year else today.year - 1
+        val acYear = if (today.monthValue >= 7) today.year else today.year - 1
         fun id(d: LocalDate, y: Int) = "${d.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)}$y"
         val all = linkedSetOf<String>()
         var d = LocalDate.of(acYear, 9, 1).with(DayOfWeek.MONDAY)
@@ -163,7 +163,8 @@ object GosuApi {
     /** Начало текущего полугодия: до 31.12 — 1-е (с 1 сентября), с 1 января — 2-е. */
     private fun halfYearStart(): String {
         val t = LocalDate.now()
-        return (if (t.monthValue >= 9) LocalDate.of(t.year, 9, 1) else LocalDate.of(t.year, 1, 1)).toString()
+        // с 1 июля полугодия сбрасываются: июль–декабрь — 1-е (с 1 сентября), январь–июнь — 2-е
+        return (if (t.monthValue >= 7) LocalDate.of(t.year, 9, 1) else LocalDate.of(t.year, 1, 1)).toString()
     }
 
     private fun parseMarks(list: List<JSONObject>): List<GradeRow> {
