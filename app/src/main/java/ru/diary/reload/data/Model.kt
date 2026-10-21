@@ -7,6 +7,7 @@ data class Lesson(
     val subject: String,
     val room: String,
     val teacher: String,
+    val dateIso: String = "",   // пусто = повторяется по дню недели (демо)
 )
 
 data class GradeRow(val subject: String, val marks: List<String>, val average: String)

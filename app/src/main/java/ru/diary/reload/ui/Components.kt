@@ -251,3 +251,10 @@ fun Modifier.appear(index: Int): Modifier {
         translationX = (1f - a.value) * 140f
     }
 }
+
+/** Ссылка на Telegram автора (открывается в приложении Telegram или браузере). */
+fun authorLink(): AnnotatedString = buildAnnotatedString {
+    withLink(
+        LinkAnnotation.Url("https://t.me/salatwq", TextLinkStyles(SpanStyle(color = P3.Cyan, textDecoration = TextDecoration.Underline))),
+    ) { append("t.me/salatwq") }
+}

@@ -40,9 +40,9 @@ enum class Screen(val title: String, val caption: String) {
     SPLASH("", ""),
     MENU("", ""),
     SCHEDULE("Расписание", "Уроки на неделю"),
+    HOMEWORK("Домашка", "Что задали"),
     GRADES("Оценки", "Отметки и средний балл"),
     MEDAL("Путь медали", "Сколько пятёрок нужно до 4.6"),
-    HOMEWORK("Домашка", "Что задали"),
     ACCOUNT("Аккаунт", "Вход через Госуслуги, данные"),
     BROWSER("", ""),
 }

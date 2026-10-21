@@ -26,6 +26,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.painterResource
 import ru.diary.reload.R
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -44,12 +45,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ru.diary.reload.AppViewModel
 import ru.diary.reload.Screen
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
-
-private val DAYS = listOf("ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ")
 
 // ───────────────────────── Главное меню ─────────────────────────
 
@@ -60,7 +58,7 @@ fun MenuScreen(vm: AppViewModel, onOpen: (Screen) -> Unit) {
     val haptic = LocalHapticFeedback.current
     val now = LocalDate.now()
     val locale = Locale("ru")
-    val todayLessons = vm.data.lessons.count { it.day == now.dayOfWeek.value }
+    val todayLessons = vm.data.lessons.count { lessonOn(it, now) }
 
     P3Background {
         Column(Modifier.fillMaxSize().systemBarsPadding().padding(20.dp)) {
@@ -118,41 +116,19 @@ private fun MenuItem(index: Int, label: String, selected: Boolean, onClick: () -
 
 @Composable
 fun ScheduleScreen(vm: AppViewModel, onBack: () -> Unit) {
-    var day by rememberSaveable { mutableIntStateOf(LocalDate.now().dayOfWeek.value.let { if (it > 6) 1 else it }) }
-    val today = LocalDate.now()
-    val monday = remember { (if (today.dayOfWeek == DayOfWeek.SUNDAY) today.plusDays(1) else today).with(DayOfWeek.MONDAY) }
-    val locale = Locale("ru")
+    val base = remember { baseMonday() }
+    val monday = base.plusWeeks(vm.weekOffset.toLong())
+    val date = monday.plusDays((vm.selectedDay - 1).toLong())
+    val dots = (1..6).filter { d -> vm.data.lessons.any { lessonOn(it, monday.plusDays((d - 1).toLong())) } }.toSet()
     ScreenFrame("Расписание", onBack) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            DAYS.forEachIndexed { i, d ->
-                val on = day == i + 1
-                val date = monday.plusDays(i.toLong())
-                Column(
-                    Modifier.weight(1f).clip(SlantShape(8.dp))
-                        .background(if (on) P3.Cyan else P3.Navy)
-                        .clickable { day = i + 1 }.padding(vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    BigText(d, 11, if (on) P3.Navy else P3.Cyan)
-                    BigText(date.dayOfMonth.toString(), 20, if (on) P3.Navy else P3.White)
-                }
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        val sel = monday.plusDays((day - 1).toLong())
-        Row(verticalAlignment = Alignment.Bottom) {
-            BigText(sel.dayOfMonth.toString(), 56)
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.padding(bottom = 8.dp)) {
-                BigText(sel.month.getDisplayName(TextStyle.FULL, locale).uppercase(), 16, P3.Cyan)
-                BigText(sel.dayOfWeek.getDisplayName(TextStyle.FULL, locale).uppercase(), 13)
-            }
-        }
+        WeekBar(monday, vm.selectedDay, vm.weekOffset, dots, { vm.selectedDay = it }, { vm.weekOffset = it })
         Spacer(Modifier.height(8.dp))
-        val list = vm.data.lessons.filter { it.day == day }.sortedBy { it.number }
+        DateHeader(date, !vm.atToday) { vm.goToday() }
+        Spacer(Modifier.height(6.dp))
+        val list = vm.data.lessons.filter { lessonOn(it, date) }.sortedBy { it.number }
         if (list.isEmpty()) EmptyState(vm, "В этот день уроков нет")
         else LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
-            itemsIndexed(list, key = { _, l -> "$day-${l.number}-${l.subject}" }) { i, l ->
+            itemsIndexed(list, key = { _, l -> "${l.dateIso}-${l.day}-${l.number}-${l.subject}" }) { _, l ->
                 SlantCard(Modifier.fillMaxWidth()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         BigText(l.number.toString(), 40, P3.Cyan)
@@ -305,27 +281,36 @@ fun MedalScreen(vm: AppViewModel, onBack: () -> Unit) {
 
 @Composable
 fun HomeworkScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val locale = Locale("ru")
-    val days = remember {
-        generateSequence(LocalDate.now()) { it.plusDays(1) }
-            .filter { it.dayOfWeek != DayOfWeek.SUNDAY }.take(6).toList()
-    }
+    val base = remember { baseMonday() }
+    val monday = base.plusWeeks(vm.weekOffset.toLong())
+    val date = monday.plusDays((vm.selectedDay - 1).toLong())
+    val iso = date.toString()
+    val dots = (1..6).filter { d ->
+        val di = monday.plusDays((d - 1).toLong()).toString()
+        vm.data.homework.any { it.dueIso == di }
+    }.toSet()
+    // предметы дня по расписанию + то, что задано, но в расписании не нашлось
+    val hwDay = vm.data.homework.filter { it.dueIso == iso }
+    val subjects = (vm.data.lessons.filter { lessonOn(it, date) }.sortedBy { it.number }.map { it.subject } +
+        hwDay.map { it.subject }).distinct()
     ScreenFrame("Домашка", onBack) {
-        LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
-            itemsIndexed(days) { i, d ->
-                val hw = vm.data.homework.filter { it.dueIso == d.toString() }
+        WeekBar(monday, vm.selectedDay, vm.weekOffset, dots, { vm.selectedDay = it }, { vm.weekOffset = it })
+        Spacer(Modifier.height(8.dp))
+        DateHeader(date, !vm.atToday) { vm.goToday() }
+        Spacer(Modifier.height(6.dp))
+        if (subjects.isEmpty()) EmptyState(vm, "На этот день ничего не задано")
+        else LazyColumn(Modifier.weight(1f), verticalArrangement = SpacedList) {
+            itemsIndexed(subjects, key = { _, s -> "$iso-$s" }) { _, subject ->
+                val items = hwDay.filter { it.subject == subject }
                 SlantCard(Modifier.fillMaxWidth()) {
-                    BigText(
-                        d.dayOfWeek.getDisplayName(TextStyle.SHORT, locale).uppercase() +
-                            "  " + "%02d.%02d".format(d.dayOfMonth, d.monthValue),
-                        15, P3.Cyan,
-                    )
-                    if (hw.isEmpty()) {
+                    BigText(subject, 16)
+                    if (items.isEmpty()) {
                         Text("—", color = P3.White.copy(alpha = 0.5f), fontSize = 16.sp)
-                    } else hw.forEach { h ->
-                        Spacer(Modifier.height(6.dp))
-                        BigText(h.subject, 16)
-                        if (h.text.isNotBlank()) Text(linkified(h.text), color = P3.White, fontSize = 14.sp)
+                    } else items.forEach { h ->
+                        Text(
+                            linkified(h.text.ifBlank { "—" }),
+                            color = P3.White, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp),
+                        )
                     }
                 }
             }
@@ -338,13 +323,19 @@ fun HomeworkScreen(vm: AppViewModel, onBack: () -> Unit) {
 @Composable
 fun AccountScreen(vm: AppViewModel, onBack: () -> Unit, onLogin: () -> Unit) {
     ScreenFrame("Аккаунт", onBack) {
-        SlantCard(Modifier.fillMaxWidth()) {
-            BigText(if (vm.demo) "РЕЖИМ: ДЕМО" else "РЕЖИМ: de.edu.orb.ru", 18, P3.Cyan)
-            Spacer(Modifier.height(4.dp))
-            Text(vm.status.ifBlank { " " }, color = P3.White, fontSize = 13.sp)
-        }
-        Spacer(Modifier.height(14.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            SlantCard(Modifier.fillMaxWidth()) {
+                BigText(if (vm.demo) "РЕЖИМ: ДЕМО" else "РЕЖИМ: de.edu.orb.ru", 18, P3.Cyan)
+                Spacer(Modifier.height(4.dp))
+                Text(vm.status.ifBlank { " " }, color = P3.White, fontSize = 13.sp)
+                if (!vm.demo) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(vm.sessionInfo, color = P3.White.copy(alpha = 0.65f), fontSize = 11.sp)
+                }
+            }
             SlantButton("ВОЙТИ ЧЕРЕЗ ГОСУСЛУГИ", Modifier.fillMaxWidth(), onClick = onLogin)
             SlantButton("ОБНОВИТЬ ДАННЫЕ", Modifier.fillMaxWidth(), filled = false) { vm.refresh() }
             SlantButton("ТЕСТ УВЕДОМЛЕНИЯ", Modifier.fillMaxWidth(), filled = false) { vm.testNotification() }
@@ -353,10 +344,17 @@ fun AccountScreen(vm: AppViewModel, onBack: () -> Unit, onLogin: () -> Unit) {
                 Modifier.fillMaxWidth(), filled = false,
             ) { vm.switchDemo(!vm.demo) }
             SlantButton("ВЫЙТИ ИЗ АККАУНТА", Modifier.fillMaxWidth(), filled = false) { vm.logout() }
-        }
-        if (vm.loading) {
-            Spacer(Modifier.height(10.dp))
-            BigText("ЗАГРУЗКА…", 14, P3.Cyan)
+            if (vm.loading) BigText("ЗАГРУЗКА…", 14, P3.Cyan)
+            SlantCard(Modifier.fillMaxWidth()) {
+                BigText("АВТОР", 14, P3.Cyan)
+                Spacer(Modifier.height(2.dp))
+                Text(authorLink(), color = P3.White, fontSize = 15.sp)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "О багах и пожеланиях пишите туда же.",
+                    color = P3.White.copy(alpha = 0.75f), fontSize = 12.sp,
+                )
+            }
         }
     }
 }
