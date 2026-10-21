@@ -168,10 +168,3 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit) {
         }
     }
 }
-
-private fun save(web: WebView?, vm: AppViewModel, key: String, name: String, setNote: (String) -> Unit) {
-    val url = web?.url
-    if (url == null) { setNote("Страница ещё не загружена"); return }
-    vm.saveUrl(key, url)
-    setNote("$name: сохранено\n$url")
-}
